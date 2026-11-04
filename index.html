@@ -496,56 +496,197 @@
         localStorage.setItem('anon_subnet_seed', subnetSeed);
         document.getElementById('subnet-id').innerText = subnetSeed;
 
-        // Web Audio API Soundtrack & SFX Engine
-        let audioCtx = null, ambientNode = null, alarmNode = null;
+        // Web Audio API - Procedural Ambient Synth + SFX Engine
+        let audioCtx = null;
+        let masterGain = null;
+        let ambientNodes = [];
+        let sequenceTimer = null;
+        let sequenceStep = 0;
 
-        function toggleAudio() {
+        // A mellow, minor-leaning sequence for the terminal atmosphere.
+        const melody = [
+            220.00, 261.63, 329.63, 392.00,
+            329.63, 293.66, 261.63, 196.00
+        ];
+
+        async function toggleAudio() {
             state.audioActive = !state.audioActive;
-            let btn = document.getElementById('audio-toggle');
-            btn.innerText = state.audioActive ? '[ AUDIO: ON ]' : '[ AUDIO: OFF ]';
+
+            const btn = document.getElementById('audio-toggle');
+            btn.innerText = state.audioActive
+                ? '[ AUDIO: ON ]'
+                : '[ AUDIO: OFF ]';
             btn.classList.toggle('active', state.audioActive);
 
             if (state.audioActive) {
-                initSoundtrack();
+                await initSoundtrack();
             } else {
                 stopSoundtrack();
             }
         }
 
-        function initSoundtrack() {
+        async function initSoundtrack() {
             try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    masterGain = audioCtx.createGain();
+                    masterGain.gain.value = 0;
+                    masterGain.connect(audioCtx.destination);
+                }
 
-                // Low server hum drone
-                ambientNode = audioCtx.createOscillator();
-                let gain = audioCtx.createGain();
-                ambientNode.type = 'sawtooth';
-                ambientNode.frequency.setValueAtTime(55, audioCtx.currentTime); // Low A note
-                gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
-                ambientNode.connect(gain);
-                gain.connect(audioCtx.destination);
-                ambientNode.start();
-            } catch(e) {}
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+
+                // Prevent duplicate soundtrack layers if Audio is toggled quickly.
+                if (sequenceTimer) clearInterval(sequenceTimer);
+                ambientNodes.forEach(node => {
+                    try { node.stop(); } catch (e) {}
+                });
+                ambientNodes = [];
+
+                const now = audioCtx.currentTime;
+
+                masterGain.gain.cancelScheduledValues(now);
+                masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+                masterGain.gain.linearRampToValueAtTime(0.55, now + 1.5);
+
+                // ATMOSPHERE: soft, warm server-room pad.
+                const padGain = audioCtx.createGain();
+                padGain.gain.value = 0.035;
+                padGain.connect(masterGain);
+
+                const padFilter = audioCtx.createBiquadFilter();
+                padFilter.type = 'lowpass';
+                padFilter.frequency.value = 450;
+                padFilter.Q.value = 0.7;
+                padFilter.connect(padGain);
+
+                // Smooth sine tones replace the original harsh sawtooth buzz.
+                [55, 82.41].forEach((frequency, index) => {
+                    const osc = audioCtx.createOscillator();
+                    const oscGain = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.value = frequency;
+                    oscGain.gain.value = index === 0 ? 0.65 : 0.35;
+
+                    osc.connect(oscGain);
+                    oscGain.connect(padFilter);
+                    osc.start();
+
+                    ambientNodes.push(osc);
+                });
+
+                // Gentle filter movement keeps the ambience from feeling static.
+                const lfo = audioCtx.createOscillator();
+                const lfoGain = audioCtx.createGain();
+
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.08;
+                lfoGain.gain.value = 130;
+                lfo.connect(lfoGain);
+                lfoGain.connect(padFilter.frequency);
+                lfo.start();
+
+                ambientNodes.push(lfo);
+
+                // PROCEDURAL MELODY: a quiet note every 620 ms.
+                sequenceStep = 0;
+                sequenceTimer = setInterval(() => {
+                    if (!state.audioActive || !audioCtx || audioCtx.state !== 'running') return;
+
+                    let frequency = melody[sequenceStep % melody.length];
+
+                    // Increase tension as the system becomes compromised.
+                    if (state.trace >= 4) {
+                        frequency *= 1.5;
+                    } else if (state.thermals >= 80) {
+                        frequency *= 1.25;
+                    }
+
+                    playAmbientNote(frequency);
+                    sequenceStep++;
+                }, 620);
+
+            } catch (e) {
+                console.warn('Audio initialization failed:', e);
+                state.audioActive = false;
+                const btn = document.getElementById('audio-toggle');
+                btn.innerText = '[ AUDIO: OFF ]';
+                btn.classList.remove('active');
+            }
+        }
+
+        function playAmbientNote(frequency) {
+            if (!audioCtx || !masterGain || audioCtx.state !== 'running') return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(frequency, now);
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 1400;
+
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.035, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(now);
+            osc.stop(now + 0.5);
         }
 
         function stopSoundtrack() {
-            if (ambientNode) { try { ambientNode.stop(); } catch(e){} ambientNode = null; }
-            if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+            if (sequenceTimer) {
+                clearInterval(sequenceTimer);
+                sequenceTimer = null;
+            }
+
+            if (!audioCtx || !masterGain) return;
+
+            const now = audioCtx.currentTime;
+            masterGain.gain.cancelScheduledValues(now);
+            masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+            masterGain.gain.linearRampToValueAtTime(0, now + 0.3);
+
+            ambientNodes.forEach(node => {
+                try { node.stop(now + 0.35); } catch (e) {}
+            });
+            ambientNodes = [];
         }
 
+        // Short, clean UI sound effects routed through the same master volume.
         function playBeep(freq, type, duration) {
-            if (!state.audioActive) return;
+            if (!state.audioActive || !audioCtx || !masterGain || audioCtx.state !== 'running') return;
+
             try {
-                let osc = audioCtx.createOscillator();
-                let gain = audioCtx.createGain();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
                 osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + duration);
-            } catch(e){}
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.exponentialRampToValueAtTime(0.045, now + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.start(now);
+                osc.stop(now + duration + 0.02);
+            } catch (e) {
+                console.warn('SFX playback failed:', e);
+            }
         }
 
         // Tab Switching Logic
