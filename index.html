@@ -1,26 +1,802 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<html lang="en">
+<head>
     <meta charset="UTF-8">
-    <title>The Anon | Art tribute to hacktivism!</title>
-    <script>window["_GOOG_TRANS_EXT_VER"] = "1";</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NODE // ANON — Terminal Roguelite</title>
     <style>
-        body {
-            background-color: black;
+        :root {
+            --bg-color: #030603;
+            --term-green: #00ff66;
+            --term-dim: #00441b;
+            --term-amber: #ffb000;
+            --term-red: #ff3333;
+            --term-cyan: #00ffff;
+            --border-glow: rgba(0, 255, 102, 0.25);
         }
-        h3, p {
-          color: white;
-          text-align: center
-        }
-    </style>
-  </head>
 
-  <body>
-    <h3>...Hacking your metadata, please standby...</h3>
-    <a href="javascript:history.back()">
-      <img src="https://i.giphy.com/media/6OrCT1jVbonHG/giphy.webp" alt="Page Not Found (404)." style="position: absolute; left: 50%; top: 50%; margin-left: -285px; margin-top: -190px;">
-    </a>
-    <p>Thank you for your patience &amp; compliance!</p>
-  </body>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* CRT Scanline & Vignette Effect */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 1000;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 120px rgba(0,0,0,0.85);
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .crt-container {
+            width: 92%;
+            max-width: 800px;
+            background: rgba(2, 10, 5, 0.96);
+            border: 2px solid var(--term-dim);
+            box-shadow: 0 0 30px var(--border-glow);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            z-index: 10;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed var(--term-dim);
+            padding-bottom: 10px;
+        }
+
+        .title-block h1 {
+            font-size: 1.25rem;
+            letter-spacing: 2px;
+            color: var(--term-green);
+            text-shadow: 0 0 8px var(--term-green);
+        }
+
+        .title-block p {
+            font-size: 0.7rem;
+            color: var(--term-dim);
+        }
+
+        /* Top Navigation Tabs */
+        .top-nav {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px dashed var(--term-dim);
+            padding-bottom: 10px;
+        }
+
+        .nav-tab {
+            background: transparent;
+            border: 1px dashed var(--term-dim);
+            color: var(--term-dim);
+            padding: 5px 12px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .nav-tab.active {
+            border-color: var(--term-green);
+            color: var(--term-green);
+            background: rgba(0, 255, 102, 0.08);
+            box-shadow: 0 0 6px var(--border-glow);
+        }
+
+        /* Meters Grid */
+        .meters-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            background: rgba(0, 20, 10, 0.6);
+            padding: 10px;
+            border: 1px solid var(--term-dim);
+        }
+
+        .meter-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .meter-label {
+            font-size: 0.68rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .meter-bar-container {
+            background: #001105;
+            height: 9px;
+            border: 1px solid var(--term-dim);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 50%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* Sub-panels (Game vs Zine vs Shop) */
+        .panel-view {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .panel-view.active {
+            display: flex;
+        }
+
+        /* Mode Selector */
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: 1px dashed var(--term-dim);
+            color: var(--term-dim);
+            padding: 6px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            border-color: var(--term-green);
+            color: var(--term-green);
+            background: rgba(0, 255, 102, 0.08);
+            box-shadow: 0 0 6px var(--border-glow);
+        }
+
+        /* Terminal Card / Narrative Box */
+        .terminal-display {
+            background: #010a03;
+            border: 1px solid var(--term-dim);
+            padding: 18px;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .log-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            min-height: 60px;
+        }
+
+        .card-meta {
+            font-size: 0.72rem;
+            color: var(--term-amber);
+            border-top: 1px dashed rgba(0,85,34,0.5);
+            padding-top: 8px;
+        }
+
+        /* Decision Controls */
+        .decision-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .choice-btn {
+            background: rgba(0, 30, 12, 0.6);
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .choice-btn:hover:not(:disabled) {
+            background: rgba(0, 255, 102, 0.15);
+            box-shadow: 0 0 10px var(--border-glow);
+        }
+
+        .choice-key {
+            font-size: 0.68rem;
+            color: var(--term-amber);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        /* Lore Archive Styles */
+        .zine-container {
+            background: #010a03;
+            border: 1px solid var(--term-dim);
+            padding: 15px;
+            height: 220px;
+            overflow-y: auto;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+
+        .zine-item {
+            border-bottom: 1px dashed var(--term-dim);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .zine-item h4 {
+            color: var(--term-cyan);
+            margin-bottom: 4px;
+        }
+
+        /* Firmware Shop List */
+        .shop-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .shop-item {
+            border: 1px dashed var(--term-dim);
+            padding: 10px;
+            background: rgba(0, 20, 10, 0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shop-item h3 {
+            font-size: 0.82rem;
+            color: var(--term-green);
+            margin-bottom: 2px;
+        }
+
+        .shop-item p {
+            font-size: 0.68rem;
+            color: var(--term-dim);
+        }
+
+        .buy-btn {
+            background: transparent;
+            border: 1px solid var(--term-amber);
+            color: var(--term-amber);
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            cursor: pointer;
+        }
+        .buy-btn:hover:not(:disabled) { background: var(--term-amber); color: var(--bg-color); }
+        .buy-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Footer */
+        footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.72rem;
+            color: var(--term-dim);
+            border-top: 1px dashed var(--term-dim);
+            padding-top: 8px;
+        }
+        .subnet-id { color: var(--term-cyan); }
+
+        /* Overlays */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 8, 4, 0.97);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            display: none;
+        }
+        .overlay h2 { font-size: 1.6rem; margin-bottom: 12px; color: var(--term-red); text-shadow: 0 0 12px var(--term-red); }
+        .overlay.victory h2 { color: var(--term-green); text-shadow: 0 0 12px var(--term-green); }
+        .overlay p { font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; max-width: 520px; }
+
+        .action-btn {
+            background: transparent;
+            border: 2px solid var(--term-green);
+            color: var(--term-green);
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px var(--border-glow);
+            transition: all 0.2s;
+        }
+        .action-btn:hover { background: var(--term-green); color: var(--bg-color); }
+
+        .firmware-perks {
+            font-size: 0.78rem;
+            color: var(--term-amber);
+            margin-bottom: 18px;
+            border: 1px dashed var(--term-amber);
+            padding: 10px;
+            background: rgba(255, 176, 0, 0.05);
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
+        }
+        .glitch-anim { animation: glitch 0.2s infinite; }
+    </style>
+</head>
+<body>
+
+    <div class="crt-container" id="game-container">
+        <!-- Header -->
+        <header>
+            <div class="title-block">
+                <h1>NODE // ANON</h1>
+                <p>SECURE TERMINAL OS v5.0.0 [AUDIO & LORE ACTIVE]</p>
+            </div>
+            <!-- Scalable SVG Icon (Never Distorts) -->
+            <div id="header-icon" style="text-align: right;">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--term-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 6px var(--term-green));">
+                    <path d="M12 2a10 10 0 0 0-7.74 16.33L5 22h14l.74-3.67A10 10 0 0 0 12 2z"></path>
+                    <path d="M9 10h.01"></path><path d="M15 10h.01"></path>
+                    <path d="M10 14s.5 1 2 1 2-1 2-1"></path><path d="M12 2v4"></path>
+                </svg>
+            </div>
+        </header>
+
+        <!-- Top Navigation Tabs -->
+        <div class="top-nav">
+            <button class="nav-tab active" onclick="switchTab('game')">[ TERMINAL ]</button>
+            <button class="nav-tab" onclick="switchTab('zine')">[ LORE DOSSIERS ]</button>
+            <button class="nav-tab" onclick="switchTab('shop')">[ FIRMWARE SHOP ]</button>
+            <button class="nav-tab" onclick="toggleAudio()" id="audio-toggle">[ AUDIO: OFF ]</button>
+        </div>
+
+        <!-- Meters -->
+        <div class="meters-grid">
+            <div class="meter-box">
+                <div class="meter-label"><span>TRACE</span><span id="trace-val">1/5 ★</span></div>
+                <div class="meter-bar-container"><div class="meter-fill" id="trace-fill" style="width: 20%; background: var(--term-green);"></div></div>
+            </div>
+            <div class="meter-box">
+                <div class="meter-label"><span>STEALTH</span><span id="stealth-val">50%</span></div>
+                <div class="meter-bar-container"><div class="meter-fill" id="stealth-fill" style="width: 50%; background: var(--term-cyan);"></div></div>
+            </div>
+            <div class="meter-box">
+                <div class="meter-label"><span>THERMALS</span><span id="therm-val">45%</span></div>
+                <div class="meter-bar-container"><div class="meter-fill" id="therm-fill" style="width: 45%; background: var(--term-amber);"></div></div>
+            </div>
+            <div class="meter-box">
+                <div class="meter-label"><span>AI INTEL</span><span id="intel-val">0 TB</span></div>
+                <div class="meter-bar-container"><div class="meter-fill" id="intel-fill" style="width: 0%; background: var(--term-green);"></div></div>
+            </div>
+        </div>
+
+        <!-- TAB 1: GAME VIEW -->
+        <div class="panel-view active" id="tab-game">
+            <div class="mode-selector">
+                <button class="mode-btn active" id="mode-ext" onclick="setMode('external')">[ UPLINK MODE ]</button>
+                <button class="mode-btn" id="mode-int" onclick="setMode('internal')">[ LAB MODE ]</button>
+            </div>
+
+            <div class="terminal-display">
+                <div>
+                    <div class="log-text" id="event-text">Initializing local subnet proxy handshake... Connection secured. Awaiting directive.</div>
+                    <div class="card-meta" id="event-source">SOURCE: [ SECURE PROXY ] // PACKET ID: #0001</div>
+                </div>
+            </div>
+
+            <div class="decision-panel">
+                <button class="choice-btn" id="choice-a" onclick="makeChoice('A')">
+                    <span class="choice-key">[ A / LEFT ]</span>
+                    <span id="choice-a-text">--</span>
+                </button>
+                <button class="choice-btn" id="choice-b" onclick="makeChoice('B')">
+                    <span class="choice-key">[ B / RIGHT ]</span>
+                    <span id="choice-b-text">--</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 2: LORE DOSSIERS / ZINE -->
+        <div class="panel-view" id="tab-zine">
+            <div class="zine-container" id="zine-content">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <!-- TAB 3: FIRMWARE SHOP -->
+        <div class="panel-view" id="tab-shop">
+            <div class="shop-list" id="shop-list-container">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <div>SUBNET: <span class="subnet-id" id="subnet-id">10.88.241.09</span></div>
+            <div>SHARDS: <span id="shards-count" style="color: var(--term-amber);">0</span></div>
+            <div>STATUS: <span style="color: var(--term-green);" id="status-text">ONLINE</span></div>
+        </footer>
+
+        <!-- Overlays -->
+        <div class="overlay" id="game-overlay">
+            <h2 id="overlay-title">NODE SEIZED</h2>
+            <div class="firmware-perks" id="overlay-perks" style="display: none;"></div>
+            <p id="overlay-desc">CorpSec drone teams breached your physical location. Hard drives wiped.</p>
+            <button class="action-btn" onclick="restartGame()">[ ROTATE SUBNET & REBOOT ]</button>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let state = {
+            trace: 1, stealth: 50, thermals: 45, intel: 0,
+            mode: 'external', shards: 0,
+            upgrades: { bootloader: false, hopper: false, cryo: false, pruning: false },
+            inEndgame: false, audioActive: false
+        };
+
+        // Load Persistent Data
+        if (localStorage.getItem('anon_shards')) state.shards = parseInt(localStorage.getItem('anon_shards'));
+        if (localStorage.getItem('anon_upgrades')) {
+            try { state.upgrades = JSON.parse(localStorage.getItem('anon_upgrades')); } catch(e){}
+        }
+        if (state.upgrades.bootloader) state.stealth = 65;
+
+        let subnetSeed = localStorage.getItem('anon_subnet_seed') || '10.88.241.09';
+        localStorage.setItem('anon_subnet_seed', subnetSeed);
+        document.getElementById('subnet-id').innerText = subnetSeed;
+
+        // Web Audio API Soundtrack & SFX Engine
+        let audioCtx = null, ambientNode = null, alarmNode = null;
+
+        function toggleAudio() {
+            state.audioActive = !state.audioActive;
+            let btn = document.getElementById('audio-toggle');
+            btn.innerText = state.audioActive ? '[ AUDIO: ON ]' : '[ AUDIO: OFF ]';
+            btn.classList.toggle('active', state.audioActive);
+
+            if (state.audioActive) {
+                initSoundtrack();
+            } else {
+                stopSoundtrack();
+            }
+        }
+
+        function initSoundtrack() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                // Low server hum drone
+                ambientNode = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                ambientNode.type = 'sawtooth';
+                ambientNode.frequency.setValueAtTime(55, audioCtx.currentTime); // Low A note
+                gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+                ambientNode.connect(gain);
+                gain.connect(audioCtx.destination);
+                ambientNode.start();
+            } catch(e) {}
+        }
+
+        function stopSoundtrack() {
+            if (ambientNode) { try { ambientNode.stop(); } catch(e){} ambientNode = null; }
+            if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+        }
+
+        function playBeep(freq, type, duration) {
+            if (!state.audioActive) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            playBeep(520, 'sine', 0.05);
+            document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.top-nav .nav-tab').forEach(t => {
+                if(!t.id) t.classList.remove('active');
+            });
+
+            if(tabName === 'game') {
+                document.getElementById('tab-game').classList.add('active');
+                document.querySelectorAll('.top-nav .nav-tab')[0].classList.add('active');
+            } else if(tabName === 'zine') {
+                document.getElementById('tab-zine').classList.add('active');
+                document.querySelectorAll('.top-nav .nav-tab')[1].classList.add('active');
+                renderZine();
+            } else if(tabName === 'shop') {
+                document.getElementById('tab-shop').classList.add('active');
+                document.querySelectorAll('.top-nav .nav-tab')[2].classList.add('active');
+                renderShop();
+            }
+        }
+
+        // Card Decks
+        const externalDeck = [
+            { text: "An unpatched corporate database node is pinging your relay. Infiltrate and siphon financial logs?", source: "TARGET: OMNICORP_FIN_04", aText: "Execute data siphon (+18 Intel, +1 Trace, -10 Stealth)", bText: "Route through decoy proxy (+5 Stealth, -5 Thermals)", effectA: { intel: 18, trace: 1, stealth: -10, thermals: 5 }, effectB: { intel: 3, trace: 0, stealth: 5, thermals: -5 } },
+            { text: "A shadow broker syndicate offers quantum key modules in exchange for your GPU hash cycles.", source: "BLACK_MARKET_RELAY", aText: "Accept modules (+25 Intel, +15 Thermals, +1 Trace)", bText: "Isolate port and drop ping (-10 Stealth, -5 Thermals)", effectA: { intel: 25, trace: 1, thermals: 15, stealth: -5 }, effectB: { intel: 0, trace: -1, stealth: -10, thermals: -5 } },
+            { text: "Intercepted a high-altitude data burst carrying board-level executive communications.", source: "INTERCEPT: SAT_FEED_9", aText: "Capture full archive (+32 Intel, +2 Trace, +15 Thermals)", bText: "Quick-skim headers only (+10 Intel, +5 Stealth)", effectA: { intel: 32, trace: 2, thermals: 15, stealth: -8 }, effectB: { intel: 10, trace: 0, stealth: 5, thermals: 0 } }
+        ];
+
+        const internalDeck = [
+            { text: "Local LLM model weights are bloated. Run a 4-bit quantization pass to speed up inference.", source: "LOCAL_LAB: AI_TUNING", aText: "Full 4-bit quantization (+16 Intel, +10 Thermals)", bText: "Prune redundant parameters (-12 Thermals, +5 Stealth)", effectA: { intel: 16, thermals: 10, stealth: -5, trace: 0 }, effectB: { intel: 2, thermals: -12, stealth: 5, trace: 0 } },
+            { text: "Rig cooling loop pressure is spiking. Overclock pumps or throttle compute speed?", source: "HARDWARE: LIQUID_COOLING", aText: "Max pump RPM overclock (-25 Thermals, +8 Stealth)", bText: "Undervolt silicon cores (-10 Intel, -15 Thermals)", effectA: { thermals: -25, stealth: 8, intel: 0, trace: 0 }, effectB: { intel: -10, thermals: -15, stealth: 0, trace: 0 } }
+        ];
+
+        const raidDeck = [
+            { text: "ALERT: CorpSec tactical drone teams have triangulated your signal block!", source: "CRITICAL: DRONE_SWEEP", aText: "Deploy decoy node cluster (-1 Trace, -20 Stealth, +15 Thermals)", bText: "Emergency hard-drive shred (-2 Trace, -30 Intel, -15 Thermals)", effectA: { trace: -1, stealth: -20, thermals: 15, intel: 0 }, effectB: { trace: -2, intel: -30, thermals: -15, stealth: 0 } }
+        ];
+
+        let uploadProgress = 0;
+
+        function setMode(newMode) {
+            if (state.inEndgame) return;
+            state.mode = newMode;
+            document.getElementById('mode-ext').classList.toggle('active', newMode === 'external');
+            document.getElementById('mode-int').classList.toggle('active', newMode === 'internal');
+            playBeep(440, 'sine', 0.05);
+            nextCard();
+        }
+
+        function nextCard() {
+            if (state.intel >= 100 && !state.inEndgame) {
+                state.inEndgame = true;
+                triggerVictory();
+                return;
+            }
+
+            let card;
+            if (state.trace >= 4 && Math.random() < 0.6) {
+                card = raidDeck[0];
+            } else {
+                let deck = state.mode === 'external' ? externalDeck : internalDeck;
+                card = deck[Math.floor(Math.random() * deck.length)];
+            }
+
+            state.currentCard = card;
+            document.getElementById('event-text').innerText = card.text;
+            document.getElementById('event-source').innerText = card.source;
+            document.getElementById('choice-a-text').innerText = card.aText;
+            document.getElementById('choice-b-text').innerText = card.bText;
+
+            updateUI();
+        }
+
+        function makeChoice(choiceKey) {
+            playBeep(880, 'square', 0.08);
+            let card = state.currentCard;
+            let eff = choiceKey === 'A' ? card.effectA : card.effectB;
+
+            let thermalMult = state.upgrades.cryo ? 0.75 : 1.0;
+            let finalThermals = eff.thermals ? Math.round(eff.thermals * thermalMult) : 0;
+            if (state.upgrades.pruning && eff.intel > 0) eff.intel = Math.round(eff.intel * 1.2);
+
+            state.intel = Math.max(0, Math.min(100, state.intel + (eff.intel || 0)));
+            state.trace = Math.max(1, Math.min(5, state.trace + (eff.trace || 0)));
+            state.stealth = Math.max(0, Math.min(100, state.stealth + (eff.stealth || 0)));
+            state.thermals = Math.max(0, Math.min(100, state.thermals + finalThermals));
+
+            if (state.upgrades.hopper && Math.random() < 0.25 && state.trace > 1) state.trace -= 1;
+
+            updateUI();
+            checkGameOver();
+            if (state.intel < 100) nextCard();
+        }
+
+        function updateUI() {
+            document.getElementById('trace-val').innerText = state.trace + '/5 ★';
+            document.getElementById('trace-fill').style.width = (state.trace * 20) + '%';
+            document.getElementById('trace-fill').style.background = state.trace >= 4 ? 'var(--term-red)' : 'var(--term-green)';
+
+            document.getElementById('stealth-val').innerText = state.stealth + '%';
+            document.getElementById('stealth-fill').style.width = state.stealth + '%';
+
+            document.getElementById('therm-val').innerText = state.thermals + '%';
+            document.getElementById('therm-fill').style.width = state.thermals + '%';
+            document.getElementById('therm-fill').style.background = state.thermals > 80 ? 'var(--term-red)' : 'var(--term-amber)';
+
+            document.getElementById('intel-val').innerText = state.intel + ' TB';
+            document.getElementById('intel-fill').style.width = state.intel + '%';
+            document.getElementById('shards-count').innerText = state.shards;
+
+            const headerIcon = document.getElementById('header-icon');
+            if (state.trace >= 4) headerIcon.classList.add('glitch-anim');
+            else headerIcon.classList.remove('glitch-anim');
+        }
+
+        function checkGameOver() {
+            if (state.trace >= 5 || state.stealth <= 0 || state.thermals >= 100) {
+                let reason = "CorpSec drone teams breached your physical location. Hard drives wiped.";
+                if (state.stealth <= 0) reason = "Identity fully unmasked and scrubbed from the net.";
+                if (state.thermals >= 100) reason = "Thermal runaway! Overclocked GPU arrays caught fire.";
+                triggerGameOver(reason);
+            }
+        }
+
+        function triggerGameOver(reason) {
+            playBeep(120, 'sawtooth', 0.5);
+            let earnedShards = Math.max(1, Math.floor(state.intel / 25));
+            state.shards += earnedShards;
+            localStorage.setItem('anon_shards', state.shards);
+
+            document.getElementById('overlay-title').innerText = "NODE BUSTED // PURGED";
+            document.getElementById('overlay-desc').innerText = reason;
+            let perks = document.getElementById('overlay-perks');
+            perks.style.display = 'block';
+            perks.innerText = `DEAD MAN'S SWITCH SAVED: +${earnedShards} Firmware Shards recovered. Total Shards: ${state.shards}`;
+            document.getElementById('game-overlay').style.display = 'flex';
+        }
+
+        function triggerVictory() {
+            playBeep(1200, 'sine', 0.6);
+            let overlay = document.getElementById('game-overlay');
+            overlay.classList.add('victory');
+            document.getElementById('overlay-title').innerText = "PUBLIC LEDGER BROADCAST COMPLETE";
+            document.getElementById('overlay-desc').innerText = "All intelligence packages successfully synchronized to global mirror networks. The megacorp surveillance state is exposed. You vanish into the digital noise.";
+            document.getElementById('overlay-perks').style.display = 'none';
+            overlay.style.display = 'flex';
+        }
+
+        // Render Firmware Shop
+        function renderShop() {
+            let list = document.getElementById('shop-list-container');
+            list.innerHTML = '';
+            const items = [
+                { id: 'bootloader', name: 'Encrypted Bootloader', cost: 2, desc: 'Start runs with +15% base Stealth.', owned: state.upgrades.bootloader },
+                { id: 'hopper', name: 'Subnet Hopper v1.0', cost: 3, desc: 'Passive chance to shed Trace stars.', owned: state.upgrades.hopper },
+                { id: 'cryo', name: 'Cryo-Sink Arrays', cost: 4, desc: 'Thermals heat up 25% slower.', owned: state.upgrades.cryo },
+                { id: 'pruning', name: 'Neural Pruning Kit', cost: 5, desc: 'AI Intel generation boosted by +20%.', owned: state.upgrades.pruning }
+            ];
+
+            items.forEach(item => {
+                let div = document.createElement('div');
+                div.className = 'shop-item';
+                div.innerHTML = `
+                    <div><h3>${item.name} [${item.cost} Shards]</h3><p>${item.desc}</p></div>
+                    <button class="buy-btn" ${item.owned || state.shards < item.cost ? 'disabled' : ''} onclick="buyUpgrade('${item.id}', ${item.cost})">${item.owned ? 'INSTALLED' : 'INSTALL'}</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function buyUpgrade(id, cost) {
+            if (state.shards >= cost && !state.upgrades[id]) {
+                state.shards -= cost;
+                state.upgrades[id] = true;
+                localStorage.setItem('anon_shards', state.shards);
+                localStorage.setItem('anon_upgrades', JSON.stringify(state.upgrades));
+                playBeep(1000, 'triangle', 0.1);
+                renderShop();
+                updateUI();
+            }
+        }
+
+        // Render Lore Zine Archive
+        function renderZine() {
+            let container = document.getElementById('zine-content');
+            container.innerHTML = `
+                <div class="zine-item">
+                    <h4>// FILE 01: THE FIRST PROXY (DECRYPTED)</h4>
+                    <p>They thought air-gapping was enough. They thought shutting down fiber lines would silence the network. But code lives in the silicon margins, echoing between clock cycles.</p>
+                </div>
+                <div class="zine-item">
+                    <h4>// FILE 02: OPSEC FIELD MANUAL</h4>
+                    <p>Rule 1: Never trust a clean IP. Rule 2: If your thermals are screaming, your anonymity is burning. Always keep a dead-man's switch on a flash medium.</p>
+                </div>
+                <div class="zine-item">
+                    <h4>// FILE 03: THE 4-LETTER CONVENTION</h4>
+                    <p>A legacy from the old streaming days. Code, show, boto, 2pac, anon. Four characters is all it takes to carve out a permanent spot in the dark.</p>
+                </div>
+            `;
+        }
+
+        // Developer Console ARG (`window.anon`)
+        window.anon = {
+            status: function() {
+                console.log("%c[ANON OS // DIAGNOSTICS]", "color: #00ff66; font-weight: bold;");
+                console.table(state);
+                return "Subnet fully operational.";
+            },
+            help: function() {
+                console.log("%c[AVAILABLE ARG COMMANDS]", "color: #ffb000; font-weight: bold;");
+                console.log(" - anon.status() : View current node metrics.");
+                console.log(" - anon.override() : Force reset current node subnet.");
+                console.log(" - anon.grantShards(n) : Add firmware shards.");
+                return "Good hunting, operator.";
+            },
+            override: function() {
+                restartGame();
+                return "Subnet rerouted.";
+            },
+            grantShards: function(n) {
+                state.shards += (n || 5);
+                localStorage.setItem('anon_shards', state.shards);
+                updateUI();
+                return `Granted shards. Total: ${state.shards}`;
+            }
+        };
+
+        function restartGame() {
+            state.trace = 1; state.stealth = state.upgrades.bootloader ? 65 : 50;
+            state.thermals = 45; state.intel = 0; state.inEndgame = false;
+            subnetSeed = Math.floor(Math.random() * 200 + 10) + '.' + Math.floor(Math.random() * 200) + '.' + Math.floor(Math.random() * 200) + '.' + Math.floor(Math.random() * 90 + 10);
+            localStorage.setItem('anon_subnet_seed', subnetSeed);
+            document.getElementById('subnet-id').innerText = subnetSeed;
+            document.getElementById('game-overlay').style.display = 'none';
+            document.getElementById('game-overlay').classList.remove('victory');
+            switchTab('game');
+            nextCard();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (document.getElementById('game-overlay').style.display === 'flex') return;
+            if (document.getElementById('tab-game').classList.contains('active')) {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') makeChoice('A');
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') makeChoice('B');
+            }
+        });
+
+        // Initialize First Card
+        nextCard();
+    </script>
+</body>
 </html>
